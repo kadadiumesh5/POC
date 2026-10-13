@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>IRCTC Booking Agent</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f6fb; margin: 0; padding: 2rem; color: #1b2a4e; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    h1 { margin-top: 0; }
+    .chat { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.06); padding: 1rem; height: 60vh; overflow-y: auto; }
+    .msg { padding: .6rem .9rem; border-radius: 10px; margin: .4rem 0; white-space: pre-wrap; line-height: 1.4; }
+    .me  { background: #d9e8ff; align-self: flex-end; margin-left: 20%; }
+    .bot { background: #eef1f6; margin-right: 20%; }
+    form { display: flex; gap: .5rem; margin-top: 1rem; }
+    input { flex: 1; padding: .7rem; border-radius: 8px; border: 1px solid #ccd3df; font-size: 1rem; }
+    button { padding: .7rem 1.2rem; border: 0; background: #1b4ed8; color: #fff; border-radius: 8px; cursor: pointer; }
+    .meta { font-size: .75rem; color: #6c7a99; }
+    .examples { font-size: .85rem; color: #4b5a7f; margin-top: .5rem; }
+    .examples code { background: #e9ecf4; padding: .1rem .4rem; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🚆 IRCTC Booking Agent</h1>
+    <p class="meta">A tiny agent that orchestrates train search, availability, booking, and cancellation.</p>
+    <div id="chat" class="chat"></div>
+    <form id="form">
+      <input id="input" autocomplete="off" placeholder="Try: find trains from NDLS to BCT on 2026-11-01" />
+      <button>Send</button>
+    </form>
+    <div class="examples">
+      Examples:
+      <code onclick="fillExample(this)">find trains from NDLS to BCT on 2026-11-01</code>
+      <code onclick="fillExample(this)">availability on 12951 in 3A on 2026-11-01</code>
+      <code onclick="fillExample(this)">book 12951 from NDLS to BCT on 2026-11-01 in 3A for Umesh M 32</code>
+      <code onclick="fillExample(this)">cancel PNR 1000000001</code>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://localhost:8000/api/agent/chat";
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+
+    // One session_id per browser tab → agent remembers slots across turns.
+    const SESSION_ID = (() => {
+      let id = sessionStorage.getItem("irctc_session");
+      if (!id) {
+        id = "sess-" + Math.random().toString(36).slice(2) + "-" + Date.now();
+        sessionStorage.setItem("irctc_session", id);
+      }
+      return id;
+    })();
+
+    function addMsg(cls, text) {
+      const el = document.createElement("div");
+      el.className = "msg " + cls;
+      el.textContent = text;
+      chat.appendChild(el);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function fillExample(el) {
+      input.value = el.textContent;
+      input.focus();
+    }
+    window.fillExample = fillExample;
+
+    addMsg("bot", "Hi! I can book Indian Railways tickets. Type `help` to see what I can do.");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      addMsg("me", text);
+      input.value = "";
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, session_id: SESSION_ID }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          addMsg("bot", "⚠ " + (body.detail || "Something went wrong."));
+          return;
+        }
+        addMsg("bot", `[${body.intent}] ` + body.reply);
+      } catch (err) {
+        addMsg("bot", "⚠ Network error: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
