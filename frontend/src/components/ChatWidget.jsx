@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { api } from '../api/api'
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 const SESSION_KEY = 'irctc_chat_session'
 
@@ -53,7 +54,7 @@ export default function ChatWidget() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/agent/chat', {
+      const res = await fetch(`${API_BASE}/agent/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text.trim(), session_id: getSessionId() }),
